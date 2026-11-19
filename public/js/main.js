@@ -1,12 +1,15 @@
 /**
- * TYPE IN MOTION - Frontend Orchestrator
- * Coordina UI, WebSockets (Socket.io), HandTracker y GameEngine.
+ * TYPE IN MOTION - Frontend Orchestrator (v2.0)
+ * Coordina UI, WebSockets (Socket.io), HandTracker, GameEngine
+ * y las 5 modalidades de juego con instrucciones visuales previas.
  */
 
 import { gameEngine } from './game_engine.js';
 import { FixTheTypeMode } from './modes/fix_the_type.js';
 import { StretchItMode } from './modes/stretch_it.js';
 import { PosterRushMode } from './modes/poster_rush.js';
+import { KerningRaceMode } from './modes/kerning_race.js';
+import { TypePopMode } from './modes/type_pop.js';
 
 class App {
   constructor() {
@@ -31,17 +34,14 @@ class App {
   }
 
   init() {
-    // 1. Inicializar Socket.io
     this.socket = io();
     this.setupSocketEvents();
 
-    // 2. Inicializar Motor 3D
     const canvasContainer = document.getElementById('three-container');
     if (canvasContainer) {
       gameEngine.init(canvasContainer);
     }
 
-    // 3. Inicializar Hand Tracker
     const videoElem = document.getElementById('webcam-video');
     const canvasElem = document.getElementById('webcam-canvas');
     if (window.handTracker) {
@@ -50,9 +50,8 @@ class App {
       });
     }
 
-    // 4. Vincular controles de interfaz
     this.setupUIEvents();
-    console.log("[APP] TYPE IN MOTION cliente inicializado.");
+    console.log("[APP] TYPE IN MOTION v2.0 inicializado con 5 modalidades.");
   }
 
   showScreen(screenKey) {
@@ -66,7 +65,6 @@ class App {
   }
 
   setupUIEvents() {
-    // Iniciar audio en primera interacción del usuario
     window.addEventListener('click', () => {
       if (window.soundEngine) window.soundEngine.init();
     }, { once: true });
@@ -82,7 +80,7 @@ class App {
       };
     }
 
-    // Alternar Modo de Control (Cámara / Mouse)
+    // Alternar Control (Cámara / Mouse)
     const modeBtn = document.getElementById('btn-toggle-control');
     if (modeBtn) {
       modeBtn.onclick = () => {
@@ -91,7 +89,6 @@ class App {
             window.handTracker.enableMouseFallback();
             modeBtn.textContent = '🖱️ Modo Mouse';
           } else {
-            // Intentar reactivar cámara
             location.reload();
           }
         }
@@ -103,7 +100,7 @@ class App {
     if (createBtn) {
       createBtn.onclick = () => {
         const nameInput = document.getElementById('input-player-name');
-        const playerName = nameInput ? nameInput.value.trim() : 'Jugador 1';
+        const playerName = nameInput ? nameInput.value.trim() : 'Diseñador 1';
         this.socket.emit('create_room', { playerName });
       };
     }
@@ -114,13 +111,23 @@ class App {
       joinBtn.onclick = () => {
         const nameInput = document.getElementById('input-player-name');
         const codeInput = document.getElementById('input-room-code');
-        const playerName = nameInput ? nameInput.value.trim() : 'Jugador';
+        const playerName = nameInput ? nameInput.value.trim() : 'Diseñador';
         const roomId = codeInput ? codeInput.value.trim() : '';
         if (!roomId) {
-          alert('Por favor ingresa el código de la sala.');
+          alert('Por favor ingresa el código de 5 caracteres.');
           return;
         }
         this.socket.emit('join_room', { roomId, playerName });
+      };
+    }
+
+    // Selector de Modo en Lobby
+    const modeSelect = document.getElementById('lobby-mode-selector');
+    if (modeSelect) {
+      modeSelect.onchange = (e) => {
+        if (this.isHost) {
+          this.socket.emit('select_mode', { modeKey: e.target.value });
+        }
       };
     }
 
@@ -147,7 +154,6 @@ class App {
       console.log(`[SOCKET] Conectado con ID: ${this.myPlayerId}`);
     });
 
-    // Sala creada
     this.socket.on('room_created', (room) => {
       this.currentRoom = room;
       this.isHost = true;
@@ -155,7 +161,6 @@ class App {
       this.showScreen('lobby');
     });
 
-    // Jugador se unió a sala
     this.socket.on('player_joined', (room) => {
       this.currentRoom = room;
       this.isHost = room.hostId === this.myPlayerId;
@@ -163,21 +168,26 @@ class App {
       this.showScreen('lobby');
     });
 
-    // Jugador abandonó la sala
     this.socket.on('player_left', (room) => {
       this.currentRoom = room;
       this.isHost = room.hostId === this.myPlayerId;
       this.updateLobbyUI(room);
     });
 
-    // Inicio de Ronda
-    this.socket.on('round_started', (room) => {
-      this.currentRoom = room;
-      this.showScreen('game');
-      this.setupGameMode(room);
+    this.socket.on('mode_selected', ({ selectedModeKey }) => {
+      const modeSelect = document.getElementById('lobby-mode-selector');
+      if (modeSelect) modeSelect.value = selectedModeKey;
     });
 
-    // Temporizador
+    // Inicio de Ronda con Pantalla de Instrucciones Breves Previas
+    this.socket.on('round_started', (room) => {
+      this.currentRoom = room;
+      this.showRoundInstructions(room, () => {
+        this.showScreen('game');
+        this.setupGameMode(room);
+      });
+    });
+
     this.socket.on('timer_tick', ({ timeRemaining }) => {
       if (this.timerDisplay) {
         this.timerDisplay.textContent = `${timeRemaining}s`;
@@ -187,24 +197,20 @@ class App {
       }
     });
 
-    // Actualización de Leaderboard
     this.socket.on('leaderboard_update', ({ players }) => {
       this.renderLiveLeaderboard(players);
     });
 
-    // Fin de Ronda
     this.socket.on('round_ended', (room) => {
       this.currentRoom = room;
       this.showRoundResults(room);
     });
 
-    // Fin de Partida / Podio
     this.socket.on('game_over', (room) => {
       this.currentRoom = room;
       this.showGameOver(room);
     });
 
-    // Errores
     this.socket.on('error_message', ({ message }) => {
       alert(message);
     });
@@ -213,6 +219,12 @@ class App {
   updateLobbyUI(room) {
     const codeElem = document.getElementById('lobby-room-code');
     if (codeElem) codeElem.textContent = room.id;
+
+    const modeSelect = document.getElementById('lobby-mode-selector');
+    if (modeSelect) {
+      modeSelect.value = room.selectedModeKey || 'all';
+      modeSelect.disabled = !this.isHost;
+    }
 
     const playersList = document.getElementById('lobby-players-list');
     if (playersList) {
@@ -224,7 +236,7 @@ class App {
           <div class="player-avatar-badge">${p.name.charAt(0).toUpperCase()}</div>
           <div class="player-info">
             <span class="player-name">${p.name} ${p.isHost ? '★ (Anfitrión)' : ''}</span>
-            <span class="player-status">Listo para jugar</span>
+            <span class="player-status">Listo para competir</span>
           </div>
         `;
         playersList.appendChild(card);
@@ -244,17 +256,100 @@ class App {
     }
   }
 
+  // Instrucciones visuales previas antes de cada reto
+  showRoundInstructions(room, onStartCallback) {
+    const modal = document.getElementById('round-intro-modal');
+    if (!modal) {
+      onStartCallback();
+      return;
+    }
+
+    const titleElem = document.getElementById('intro-modal-title');
+    const descElem = document.getElementById('intro-modal-desc');
+    const gestureElem = document.getElementById('intro-modal-gesture');
+    const iconElem = document.getElementById('intro-modal-icon');
+
+    const idx = room.roundIndex;
+    const instructions = [
+      {
+        title: "01. FIX THE TYPE",
+        icon: "🧩",
+        desc: "Las letras 3D están desordenadas en pantalla. Debes ordenarlas para formar la palabra antes de que termine el tiempo.",
+        gesture: "🤏 PELLIZCO CON ÍNDICE Y PULGAR: Agarra cada letra y arrástrala a su casilla correspondiente."
+      },
+      {
+        title: "02. STRETCH IT",
+        icon: "↔️",
+        desc: "Transforma la palabra estirándola o comprimiéndola para encajarla exactamente en la silueta de referencia.",
+        gesture: "👐 DOS MANOS: Separa tus manos para estirar horizontalmente, o acércalas para comprimir la palabra."
+      },
+      {
+        title: "03. POSTER RUSH",
+        icon: "🎨",
+        desc: "Diseña un cartel tipográfico 3D creativo. Selecciona letras y figuras de Blender para armar tu composición.",
+        gesture: "🤏 AGARRA Y SUELTA: Coloca los elementos sobre el lienzo editorial y pulsa FINALIZAR al terminar."
+      },
+      {
+        title: "04. KERNING RACE",
+        icon: "📐",
+        desc: "Ajusta con precisión milimétrica los espacios entre las letras para que coincidan con la palabra de referencia.",
+        gesture: "↔️ PELLIZCA Y DESPLAZA: Toma cualquier letra y muévela horizontalmente para equilibrar el espaciado."
+      },
+      {
+        title: "05. TYPE POP",
+        icon: "💥",
+        desc: "Múltiples letras flotan por la pantalla a gran velocidad. ¡Identifica y revienta la letra objetivo!",
+        gesture: "👆 TOCA O PELLIZCA: Toca las letras correctas para ganar puntos (+200). ¡Cuidado con tocar las incorrectas!"
+      }
+    ];
+
+    const currentInfo = instructions[idx] || instructions[0];
+    if (titleElem) titleElem.textContent = currentInfo.title;
+    if (iconElem) iconElem.textContent = currentInfo.icon;
+    if (descElem) descElem.textContent = currentInfo.desc;
+    if (gestureElem) gestureElem.textContent = currentInfo.gesture;
+
+    modal.classList.add('active');
+
+    let countdown = 3;
+    const countBtn = document.getElementById('btn-intro-continue');
+    if (countBtn) {
+      countBtn.textContent = `¡EMPEZAR! (${countdown}s)`;
+    }
+
+    const interval = setInterval(() => {
+      countdown--;
+      if (countdown <= 0) {
+        clearInterval(interval);
+        modal.classList.remove('active');
+        onStartCallback();
+      } else if (countBtn) {
+        countBtn.textContent = `¡EMPEZAR! (${countdown}s)`;
+      }
+    }, 1000);
+
+    if (countBtn) {
+      countBtn.onclick = () => {
+        clearInterval(interval);
+        modal.classList.remove('active');
+        onStartCallback();
+      };
+    }
+  }
+
   setupGameMode(room) {
     const idx = room.roundIndex;
     const challenge = room.currentChallenge;
 
-    // Ocultar medidores específicos
     const stretchMeter = document.getElementById('stretch-accuracy-meter');
     if (stretchMeter) stretchMeter.style.display = 'none';
 
+    const roundNum = room.currentRoundNumber || (idx + 1);
+    const totalRounds = room.totalRounds || 5;
+
     if (idx === 0) {
       // FIX THE TYPE
-      this.roundNameDisplay.textContent = 'RONDA 1: FIX THE TYPE';
+      this.roundNameDisplay.textContent = `RONDA ${roundNum}/${totalRounds}: FIX THE TYPE`;
       this.roundHintDisplay.textContent = `Ordena las letras para formar: "${challenge.word}"`;
       const mode = new FixTheTypeMode(challenge, (progress, score) => {
         this.socket.emit('update_progress', { progress, roundScore: score });
@@ -263,7 +358,7 @@ class App {
       gameEngine.setMode(mode);
     } else if (idx === 1) {
       // STRETCH IT
-      this.roundNameDisplay.textContent = 'RONDA 2: STRETCH IT';
+      this.roundNameDisplay.textContent = `RONDA ${roundNum}/${totalRounds}: STRETCH IT`;
       this.roundHintDisplay.textContent = challenge.hint || 'Estira o comprime la palabra para igualar la silueta';
       if (stretchMeter) stretchMeter.style.display = 'block';
 
@@ -274,8 +369,8 @@ class App {
       gameEngine.setMode(mode);
     } else if (idx === 2) {
       // POSTER RUSH
-      this.roundNameDisplay.textContent = 'RONDA 3: POSTER RUSH';
-      this.roundHintDisplay.textContent = 'Crea tu cartel tipográfico editorial con letras y formas 3D';
+      this.roundNameDisplay.textContent = `RONDA ${roundNum}/${totalRounds}: POSTER RUSH`;
+      this.roundHintDisplay.textContent = 'Compón libremente tu cartel tipográfico con letras y figuras 3D';
 
       const mode = new PosterRushMode(
         challenge,
@@ -288,6 +383,26 @@ class App {
         }
       );
       gameEngine.setMode(mode);
+    } else if (idx === 3) {
+      // KERNING RACE
+      this.roundNameDisplay.textContent = `RONDA ${roundNum}/${totalRounds}: KERNING RACE`;
+      this.roundHintDisplay.textContent = `Ajusta el espaciado para igualar la palabra superior: "${challenge.word}"`;
+
+      const mode = new KerningRaceMode(challenge, (progress, score) => {
+        this.socket.emit('update_progress', { progress, roundScore: score });
+        if (this.playerScoreDisplay) this.playerScoreDisplay.textContent = `${score} PTS`;
+      });
+      gameEngine.setMode(mode);
+    } else if (idx === 4) {
+      // TYPE POP
+      this.roundNameDisplay.textContent = `RONDA ${roundNum}/${totalRounds}: TYPE POP`;
+      this.roundHintDisplay.textContent = '¡Toca y revienta las letras flotantes objetivo!';
+
+      const mode = new TypePopMode(challenge, (progress, score) => {
+        this.socket.emit('update_progress', { progress, roundScore: score });
+        if (this.playerScoreDisplay) this.playerScoreDisplay.textContent = `${score} PTS`;
+      });
+      gameEngine.setMode(mode);
     }
   }
 
@@ -295,7 +410,6 @@ class App {
     const container = document.getElementById('live-leaderboard-strip');
     if (!container) return;
 
-    // Ordenar por puntaje descendente
     const sorted = [...players].sort((a, b) => (b.score + b.roundScore) - (a.score + a.roundScore));
     container.innerHTML = '';
 
@@ -347,7 +461,6 @@ class App {
       winnerNameElem.textContent = `${winner.name} (${winner.score} PTS)`;
     }
 
-    // Podio 1, 2, 3
     const podiumCont = document.getElementById('podium-steps');
     if (podiumCont) {
       podiumCont.innerHTML = '';
@@ -366,7 +479,6 @@ class App {
       });
     }
 
-    // Exposición de Pósters creados en POSTER RUSH
     const gallery = document.getElementById('posters-gallery-grid');
     if (gallery) {
       gallery.innerHTML = '';
@@ -376,7 +488,7 @@ class App {
           card.className = 'gallery-poster-card';
           card.innerHTML = `
             <img src="${p.posterImage}" alt="Póster de ${p.name}" class="gallery-poster-img" />
-            <div class="gallery-poster-author">Autor: ${p.name}</div>
+            <div class="gallery-poster-author">Diseñado por: ${p.name}</div>
           `;
           gallery.appendChild(card);
         }

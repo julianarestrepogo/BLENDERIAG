@@ -1,7 +1,8 @@
 /**
- * TYPE IN MOTION - Modalidad 3: POSTER RUSH
+ * TYPE IN MOTION - Modalidad 3: POSTER RUSH (v2.0)
  * Los jugadores componen libremente un cartel tipográfico editorial 3D
  * combinando letras tridimensionales y figuras geométricas de Blender.
+ * Vista 100% frontal, composición paralela a pantalla y paleta cálida vibrante.
  */
 
 import * as THREE from 'three';
@@ -20,7 +21,7 @@ export class PosterRushMode {
     this.grabbedElement = null;
     this.grabOffset = new THREE.Vector3();
     this.wasPinching = false;
-    this.activeColorHex = 0x0038FF; // Azul eléctrico inicial
+    this.activeColorHex = 0xFF713B; // Naranja inicial
 
     this.score = 300;
   }
@@ -30,35 +31,39 @@ export class PosterRushMode {
     this.engine.scene.add(this.rootGroup);
     this.rootGroup.add(this.posterGroup);
 
-    // 1. Lienzo del póster 3D (Proporción vertical editorial 3:4)
-    const posterWidth = 7.0;
-    const posterHeight = 9.2;
+    // 1. Lienzo del póster 3D frontal (Proporción vertical editorial 3:4)
+    const posterWidth = 7.6;
+    const posterHeight = 9.8;
 
     const canvasGeom = new THREE.PlaneGeometry(posterWidth, posterHeight);
     const canvasMat = new THREE.MeshStandardMaterial({
-      color: 0xF5F2EB, // Crema editorial
+      color: this.engine.colors.cream,
       roughness: 0.9,
       metalness: 0.0
     });
     this.posterCanvas = new THREE.Mesh(canvasGeom, canvasMat);
-    this.posterCanvas.position.set(0, 0, -0.3);
+    this.posterCanvas.position.set(0, 0, -0.1);
     this.posterCanvas.receiveShadow = true;
     this.posterGroup.add(this.posterCanvas);
 
-    // Marco exterior minimalista (Negro editorial)
+    // Marco exterior editorial en carbón oscuro
     const frameGeom = new THREE.EdgesGeometry(canvasGeom);
-    const frameMat = new THREE.LineBasicMaterial({ color: 0x111111, linewidth: 3 });
+    const frameMat = new THREE.LineBasicMaterial({
+      color: this.engine.colors.dark,
+      linewidth: 3
+    });
     const frame = new THREE.LineSegments(frameGeom, frameMat);
     frame.position.copy(this.posterCanvas.position);
     this.posterGroup.add(frame);
 
     // 2. Spawn inicial de elementos de bienvenida
-    await this.spawnElement('letter_T', -1.8, 2.2, 0x0038FF);
-    await this.spawnElement('letter_Y', -0.6, 2.2, 0xFF5500);
-    await this.spawnElement('letter_P', 0.6, 2.2, 0x111111);
-    await this.spawnElement('letter_E', 1.8, 2.2, 0xCCFF00);
-    await this.spawnElement('torus_ring', 2.0, -2.0, 0xCCFF00);
-    await this.spawnElement('beveled_cube', -2.0, -1.8, 0xFF5500);
+    await this.spawnElement('letter_T', -2.0, 2.4, 0xFF713B);
+    await this.spawnElement('letter_Y', -0.7, 2.4, 0xFFD65A);
+    await this.spawnElement('letter_P', 0.7, 2.4, 0xFF91B5);
+    await this.spawnElement('letter_E', 2.0, 2.4, 0xE84442);
+    await this.spawnElement('torus_ring', 2.2, -2.2, 0xFFD65A);
+    await this.spawnElement('beveled_cube', -2.2, -2.0, 0xFF713B);
+    await this.spawnElement('star_element', 0, -2.2, 0x1A1110);
 
     this.setupUI();
   }
@@ -82,7 +87,6 @@ export class PosterRushMode {
         swatch.classList.add('active');
         this.activeColorHex = parseInt(swatch.dataset.color, 16);
 
-        // Si hay elemento seleccionado, cambiarle el color
         if (this.grabbedElement) {
           this.applyColor(this.grabbedElement, this.activeColorHex);
         }
@@ -99,7 +103,8 @@ export class PosterRushMode {
   async spawnElement(modelName, x, y, colorHex) {
     const model = await this.engine.loadModel(modelName);
     model.position.set(x, y, 0.1);
-    model.scale.set(1.2, 1.2, 1.2);
+    model.scale.set(1.3, 1.3, 1.3);
+    model.rotation.set(0, 0, 0);
 
     if (colorHex) {
       this.applyColor(model, colorHex);
@@ -115,7 +120,6 @@ export class PosterRushMode {
 
     if (window.soundEngine) window.soundEngine.playGrab();
 
-    // Actualizar puntaje de composición
     this.score += 150;
     const progress = Math.min(100, Math.round((this.elements.length / 10) * 100));
     if (this.onProgressUpdate) {
@@ -128,8 +132,8 @@ export class PosterRushMode {
       if (child.isMesh) {
         child.material = new THREE.MeshStandardMaterial({
           color: colorHex,
-          roughness: 0.15,
-          metalness: 0.05
+          roughness: 0.20,
+          metalness: 0.02
         });
       }
     });
@@ -144,12 +148,12 @@ export class PosterRushMode {
     if (primaryHand.isPinching && !this.wasPinching) {
       this.tryGrab(handPoint3D);
     } else if (primaryHand.isPinching && this.grabbedElement) {
-      // Arrastrar dentro de los límites del póster
-      const clampedX = Math.max(-3.0, Math.min(3.0, handPoint3D.x + this.grabOffset.x));
-      const clampedY = Math.max(-4.0, Math.min(4.0, handPoint3D.y + this.grabOffset.y));
+      // Arrastrar manteniendo los límites frontales del póster
+      const clampedX = Math.max(-3.3, Math.min(3.3, handPoint3D.x + this.grabOffset.x));
+      const clampedY = Math.max(-4.3, Math.min(4.3, handPoint3D.y + this.grabOffset.y));
       this.grabbedElement.position.x = clampedX;
       this.grabbedElement.position.y = clampedY;
-      this.grabbedElement.position.z = 0.5; // Flotar sobre el póster
+      this.grabbedElement.position.z = 0.4;
     } else if (!primaryHand.isPinching && this.wasPinching) {
       this.releaseElement();
     }
@@ -159,10 +163,10 @@ export class PosterRushMode {
 
   tryGrab(handPoint3D) {
     let closest = null;
-    let minDist = 1.2;
+    let minDist = 1.3;
 
     for (const elem of this.elements) {
-      const d = elem.position.distanceTo(handPoint3D);
+      const d = Math.hypot(elem.position.x - handPoint3D.x, elem.position.y - handPoint3D.y);
       if (d < minDist) {
         minDist = d;
         closest = elem;
@@ -171,7 +175,11 @@ export class PosterRushMode {
 
     if (closest) {
       this.grabbedElement = closest;
-      this.grabOffset.subVectors(closest.position, handPoint3D);
+      this.grabOffset.set(
+        closest.position.x - handPoint3D.x,
+        closest.position.y - handPoint3D.y,
+        0
+      );
       if (window.soundEngine) window.soundEngine.playGrab();
     }
   }
@@ -186,8 +194,6 @@ export class PosterRushMode {
 
   finalizePoster() {
     if (window.soundEngine) window.soundEngine.playSuccess();
-
-    // Capturar snapshot del lienzo WebGL
     const snapshotDataUrl = this.engine.getCanvasSnapshot();
 
     if (this.onPosterSubmit) {
@@ -196,11 +202,11 @@ export class PosterRushMode {
   }
 
   update(delta) {
-    // Animación suave de elementos libres
+    // Sutil respiración de elementos libres
     const time = performance.now() * 0.001;
     this.elements.forEach((elem, i) => {
       if (elem !== this.grabbedElement) {
-        elem.rotation.z += Math.sin(time + i) * 0.002;
+        elem.position.z = 0.1 + Math.sin(time * 2 + i) * 0.03;
       }
     });
   }

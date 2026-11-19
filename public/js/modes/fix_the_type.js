@@ -1,7 +1,8 @@
 /**
- * TYPE IN MOTION - Modalidad 1: FIX THE TYPE
+ * TYPE IN MOTION - Modalidad 1: FIX THE TYPE (v2.0)
  * Los jugadores deben agarrar y ordenar letras 3D desordenadas
  * para formar la palabra objetivo correctamente.
+ * Vista 100% frontal, orientación vertical perfecta y paleta cálida.
  */
 
 import * as THREE from 'three';
@@ -35,23 +36,26 @@ export class FixTheTypeMode {
     // 1. Crear slots receptores en la parte superior/media
     for (let i = 0; i < numLetters; i++) {
       const slotX = startX + i * spacing;
-      const slotY = 1.2;
+      const slotY = 1.4;
 
       // Base receptora cuadrada estilo editorial
-      const slotGeom = new THREE.BoxGeometry(1.3, 1.5, 0.1);
-      const slotMat = new THREE.MeshStandardMaterial({
-        color: 0x111111,
+      const slotGeom = new THREE.PlaneGeometry(1.35, 1.6);
+      const slotMat = new THREE.MeshBasicMaterial({
+        color: this.engine.colors.cream,
         transparent: true,
-        opacity: 0.2,
-        roughness: 0.5
+        opacity: 0.95,
+        side: THREE.DoubleSide
       });
       const slotMesh = new THREE.Mesh(slotGeom, slotMat);
-      slotMesh.position.set(slotX, slotY, -0.1);
+      slotMesh.position.set(slotX, slotY, -0.05);
       this.rootGroup.add(slotMesh);
 
-      // Borde de slot
+      // Borde de slot en naranja editorial
       const edges = new THREE.EdgesGeometry(slotGeom);
-      const lineMat = new THREE.LineBasicMaterial({ color: 0x0038FF, linewidth: 2 });
+      const lineMat = new THREE.LineBasicMaterial({
+        color: this.engine.colors.orange,
+        linewidth: 2
+      });
       const wireframe = new THREE.LineSegments(edges, lineMat);
       wireframe.position.copy(slotMesh.position);
       this.rootGroup.add(wireframe);
@@ -62,23 +66,24 @@ export class FixTheTypeMode {
         x: slotX,
         y: slotY,
         occupied: false,
-        mesh: slotMesh
+        mesh: slotMesh,
+        wireframe: wireframe
       });
     }
 
-    // 2. Cargar letras 3D desordenadas (abajo)
+    // 2. Cargar letras 3D desordenadas (abajo) con orientación vertical frontal
     for (let i = 0; i < letters.length; i++) {
       const char = letters[i];
       const model = await this.engine.loadModel(`letter_${char}`);
 
-      // Posición inicial desordenada en área inferior
-      const spawnX = (Math.random() - 0.5) * (numLetters * 1.8);
-      const spawnY = -2.2 + (Math.random() - 0.5) * 1.2;
-      const spawnZ = (Math.random() - 0.5) * 0.4;
+      // Posición inicial repartida horizontalmente en área inferior
+      const spreadX = startX + i * spacing + (Math.random() - 0.5) * 0.4;
+      const spawnY = -2.2 + (i % 2 === 0 ? 0.35 : -0.35);
 
-      model.position.set(spawnX, spawnY, spawnZ);
+      model.position.set(spreadX, spawnY, 0.1);
       model.scale.set(1.4, 1.4, 1.4);
-      model.rotation.z = (Math.random() - 0.5) * 0.3; // Ligera rotación informal
+      // Mantener rotación Z en 0 para legibilidad vertical frontal absoluta
+      model.rotation.set(0, 0, 0);
 
       model.userData = {
         char: char,
@@ -111,8 +116,7 @@ export class FixTheTypeMode {
     else if (primaryHand.isPinching && this.grabbedLetter) {
       this.grabbedLetter.position.x = handPoint3D.x + this.grabOffset.x;
       this.grabbedLetter.position.y = handPoint3D.y + this.grabOffset.y;
-      this.grabbedLetter.position.z = 0.4; // Elevar ligeramente al arrastrar
-      this.grabbedLetter.rotation.z *= 0.92; // Enderezar al tomarla
+      this.grabbedLetter.position.z = 0.5; // Elevar ligeramente al arrastrar
     } 
     // Soltar letra (Pinch Up)
     else if (!primaryHand.isPinching && this.wasPinching) {
@@ -124,11 +128,11 @@ export class FixTheTypeMode {
 
   tryGrabLetter(handPoint3D) {
     let closest = null;
-    let minDistance = 1.3; // Radio de atracción del agarre
+    let minDistance = 1.4; // Radio de atracción del agarre
 
     for (const letter of this.letterObjects) {
       if (letter.userData.isPlaced) continue; // Ya no se mueve si encajó
-      const dist = letter.position.distanceTo(handPoint3D);
+      const dist = Math.hypot(letter.position.x - handPoint3D.x, letter.position.y - handPoint3D.y);
       if (dist < minDistance) {
         minDistance = dist;
         closest = letter;
@@ -137,7 +141,11 @@ export class FixTheTypeMode {
 
     if (closest) {
       this.grabbedLetter = closest;
-      this.grabOffset.subVectors(closest.position, handPoint3D);
+      this.grabOffset.set(
+        closest.position.x - handPoint3D.x,
+        closest.position.y - handPoint3D.y,
+        0
+      );
       if (window.soundEngine) window.soundEngine.playGrab();
     }
   }
@@ -153,10 +161,9 @@ export class FixTheTypeMode {
     for (const slot of this.slots) {
       if (!slot.occupied && slot.expectedChar === char) {
         const dist = Math.hypot(letter.position.x - slot.x, letter.position.y - slot.y);
-        if (dist < 1.0) { // Radio de encaje
+        if (dist < 1.1) { // Radio de encaje
           // ¡Encaje exitoso!
-          letter.position.set(slot.x, slot.y, 0);
-          letter.rotation.set(0, 0, 0);
+          letter.position.set(slot.x, slot.y, 0.1);
           letter.scale.set(1.5, 1.5, 1.5);
           letter.userData.isPlaced = true;
           slot.occupied = true;
@@ -165,9 +172,10 @@ export class FixTheTypeMode {
 
           if (window.soundEngine) window.soundEngine.playSnap();
 
-          // Efecto visual en slot
-          slot.mesh.material.opacity = 0.8;
-          slot.mesh.material.color.setHex(0xCCFF00); // Verde Lima
+          // Efecto visual cálido en slot
+          slot.mesh.material.color.setHex(this.engine.colors.yellow);
+          slot.mesh.material.opacity = 1.0;
+          slot.wireframe.material.color.setHex(this.engine.colors.red);
 
           // Notificar progreso al servidor
           const progress = Math.round((this.placedCount / this.slots.length) * 100);
@@ -192,12 +200,12 @@ export class FixTheTypeMode {
   }
 
   update(delta) {
-    // Animación suave de flotación para letras no encajadas
+    // Animación suave de flotación vertical sutil
     const time = performance.now() * 0.002;
     for (const letter of this.letterObjects) {
       if (!letter.userData.isPlaced && letter !== this.grabbedLetter) {
         const seed = letter.userData.floatSeed;
-        letter.position.y = letter.userData.initialY + Math.sin(time + seed) * 0.12;
+        letter.position.y = letter.userData.initialY + Math.sin(time + seed) * 0.08;
       }
     }
   }

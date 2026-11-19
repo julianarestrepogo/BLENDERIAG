@@ -21,19 +21,38 @@ app.use('/node_modules', express.static(path.join(__dirname, 'node_modules')));
 // Estado de salas en memoria
 const rooms = new Map();
 
-// Desafíos preconfigurados para las rondas
+// Desafíos preconfigurados para las 5 modalidades
 const WORDS_FIX = [
   { word: "MOTION", letters: ["M", "O", "T", "I", "O", "N"] },
   { word: "DESIGN", letters: ["D", "E", "S", "I", "G", "N"] },
   { word: "TYPO", letters: ["T", "Y", "P", "O"] },
   { word: "BOLD", letters: ["B", "O", "L", "D"] },
-  { word: "RUSH", letters: ["R", "U", "S", "H"] }
+  { word: "RUSH", letters: ["R", "U", "S", "H"] },
+  { word: "POSTER", letters: ["P", "O", "S", "T", "E", "R"] },
+  { word: "KINETIC", letters: ["K", "I", "N", "E", "T", "I", "C"] }
 ];
 
 const STRETCH_TARGETS = [
-  { text: "STRETCH", targetScaleX: 2.8, targetScaleY: 0.6, tolerance: 0.25, hint: "Estira horizontalmente" },
-  { text: "CONDENSED", targetScaleX: 0.5, targetScaleY: 2.4, tolerance: 0.25, hint: "Comprime y alarga verticalmente" },
-  { text: "EXPAND", targetScaleX: 3.2, targetScaleY: 0.45, tolerance: 0.25, hint: "Apertura máxima horizontal" }
+  { text: "STRETCH", targetScaleX: 2.7, targetScaleY: 0.65, tolerance: 0.25, hint: "Estira horizontalmente separando tus manos" },
+  { text: "CONDENSED", targetScaleX: 0.55, targetScaleY: 2.3, tolerance: 0.25, hint: "Comprime y alarga verticalmente" },
+  { text: "EXPAND", targetScaleX: 3.1, targetScaleY: 0.5, tolerance: 0.25, hint: "Apertura máxima horizontal" },
+  { text: "TALL", targetScaleX: 0.6, targetScaleY: 2.5, tolerance: 0.25, hint: "Alarga hacia arriba y abajo" }
+];
+
+const KERNING_WORDS = [
+  { word: "AVALON", hint: "Ajusta la separación uniforme entre las letras" },
+  { word: "TYPO", hint: "Equilibra el espacio entre T, Y, P, O" },
+  { word: "WAR", hint: "Alinea el kerning diagonal de W, A, R" },
+  { word: "MOTION", hint: "Distribuye armónicamente cada caracter" },
+  { word: "DESIGN", hint: "Consigue la misma cadencia entre letras" }
+];
+
+const MODES_LIST = [
+  { id: 0, key: "fix_the_type", name: "FIX THE TYPE", icon: "🧩", desc: "Reorganiza letras 3D para formar la palabra correcta" },
+  { id: 1, key: "stretch_it", name: "STRETCH IT", icon: "↔️", desc: "Estira y deforma palabras para igualar la silueta" },
+  { id: 2, key: "poster_rush", name: "POSTER RUSH", icon: "🎨", desc: "Crea tu cartel editorial combinando letras y figuras" },
+  { id: 3, key: "kerning_race", name: "KERNING RACE", icon: "📐", desc: "Ajusta con precisión el espaciado entre letras" },
+  { id: 4, key: "type_pop", name: "TYPE POP", icon: "💥", desc: "Toca y revienta las letras flotantes objetivo a gran velocidad" }
 ];
 
 function generateRoomCode() {
@@ -53,7 +72,11 @@ function getRoomPublicData(room) {
     roundName: room.roundName,
     roundTimeRemaining: room.roundTimeRemaining,
     currentChallenge: room.currentChallenge,
+    selectedModeKey: room.selectedModeKey || 'all',
+    totalRounds: room.playlist.length,
+    currentRoundNumber: room.currentPlaylistIndex + 1,
     hostId: room.hostId,
+    availableModes: MODES_LIST,
     players: Array.from(room.players.values()).map(p => ({
       id: p.id,
       name: p.name,
@@ -85,44 +108,80 @@ function startRoundTimer(room) {
   }, 1000);
 }
 
-function setupRound(room, roundIndex) {
-  room.roundIndex = roundIndex;
-  // Reiniciar puntajes de ronda de jugadores
+function setupRoundByModeIndex(room, modeIdx) {
+  room.roundIndex = modeIdx;
+
   for (const player of room.players.values()) {
     player.roundScore = 0;
     player.progress = 0;
     player.hasFinished = false;
   }
 
-  if (roundIndex === 0) {
-    room.state = 'PLAYING_ROUND';
+  room.state = 'PLAYING_ROUND';
+
+  if (modeIdx === 0) {
+    // 1. FIX THE TYPE
     room.roundName = 'FIX THE TYPE';
     const challenge = WORDS_FIX[Math.floor(Math.random() * WORDS_FIX.length)];
-    // Mezclar letras para los jugadores
     const shuffled = [...challenge.letters].sort(() => Math.random() - 0.5);
     room.currentChallenge = {
+      mode: 'fix_the_type',
       word: challenge.word,
       shuffledLetters: shuffled
     };
     room.roundTimeRemaining = 45;
-  } else if (roundIndex === 1) {
-    room.state = 'PLAYING_ROUND';
+  } else if (modeIdx === 1) {
+    // 2. STRETCH IT
     room.roundName = 'STRETCH IT';
     const target = STRETCH_TARGETS[Math.floor(Math.random() * STRETCH_TARGETS.length)];
-    room.currentChallenge = target;
+    room.currentChallenge = {
+      mode: 'stretch_it',
+      ...target
+    };
     room.roundTimeRemaining = 40;
-  } else if (roundIndex === 2) {
-    room.state = 'PLAYING_ROUND';
+  } else if (modeIdx === 2) {
+    // 3. POSTER RUSH
     room.roundName = 'POSTER RUSH';
     room.currentChallenge = {
-      theme: "EDITORIAL BRUTALISM",
-      subtitle: "Compón con letras y formas 3D"
+      mode: 'poster_rush',
+      theme: "EDITORIAL POP CONTEMPORÁNEO",
+      subtitle: "Compón con letras y formas 3D cálidas"
     };
-    room.roundTimeRemaining = 60;
+    room.roundTimeRemaining = 55;
+  } else if (modeIdx === 3) {
+    // 4. KERNING RACE
+    room.roundName = 'KERNING RACE';
+    const kItem = KERNING_WORDS[Math.floor(Math.random() * KERNING_WORDS.length)];
+    room.currentChallenge = {
+      mode: 'kerning_race',
+      word: kItem.word,
+      hint: kItem.hint
+    };
+    room.roundTimeRemaining = 45;
+  } else if (modeIdx === 4) {
+    // 5. TYPE POP
+    room.roundName = 'TYPE POP';
+    room.currentChallenge = {
+      mode: 'type_pop',
+      hint: "Toca las letras objetivo antes de que escapen"
+    };
+    room.roundTimeRemaining = 40;
   }
 
   io.to(room.id).emit('round_started', getRoomPublicData(room));
   startRoundTimer(room);
+}
+
+function advanceNextRound(room) {
+  room.currentPlaylistIndex++;
+  if (room.currentPlaylistIndex < room.playlist.length) {
+    const nextModeIdx = room.playlist[room.currentPlaylistIndex];
+    setupRoundByModeIndex(room, nextModeIdx);
+  } else {
+    // Fin de partida
+    room.state = 'GAME_OVER';
+    io.to(room.id).emit('game_over', getRoomPublicData(room));
+  }
 }
 
 function endCurrentRound(room) {
@@ -130,23 +189,23 @@ function endCurrentRound(room) {
     clearInterval(room.timerInterval);
   }
 
-  // Acumular puntaje de ronda al puntaje total
   for (const player of room.players.values()) {
     player.score += player.roundScore;
   }
 
-  if (room.roundIndex < 2) {
+  const isFinalRound = (room.currentPlaylistIndex >= room.playlist.length - 1);
+
+  if (!isFinalRound) {
     room.state = 'ROUND_RESULTS';
     io.to(room.id).emit('round_ended', getRoomPublicData(room));
 
-    // Auto avance a la siguiente ronda tras 6 segundos
+    // Auto avance a la siguiente ronda tras 5.5 segundos
     setTimeout(() => {
       if (rooms.has(room.id)) {
-        setupRound(room, room.roundIndex + 1);
+        advanceNextRound(room);
       }
-    }, 6000);
+    }, 5500);
   } else {
-    // Fin de la partida
     room.state = 'GAME_OVER';
     io.to(room.id).emit('game_over', getRoomPublicData(room));
   }
@@ -171,12 +230,15 @@ io.on('connection', (socket) => {
       roundTimeRemaining: 0,
       currentChallenge: null,
       timerInterval: null,
+      selectedModeKey: 'all', // 'all' (torneo 5 rondas) o '0'..'4'
+      playlist: [0, 1, 2, 3, 4],
+      currentPlaylistIndex: 0,
       players: new Map()
     };
 
     const player = {
       id: socket.id,
-      name: playerName || 'Jugador 1',
+      name: playerName || 'Diseñador 1',
       score: 0,
       roundScore: 0,
       progress: 0,
@@ -199,12 +261,12 @@ io.on('connection', (socket) => {
     const room = rooms.get(cleanId);
 
     if (!room) {
-      socket.emit('error_message', { message: 'La sala no existe. Verifica el código.' });
+      socket.emit('error_message', { message: 'La sala no existe. Verifica el código de 5 caracteres.' });
       return;
     }
 
     if (room.state !== 'LOBBY' && room.state !== 'GAME_OVER') {
-      socket.emit('error_message', { message: 'La partida ya está en curso. Espera a que termine.' });
+      socket.emit('error_message', { message: 'La partida ya comenzó. Espera a que termine.' });
       return;
     }
 
@@ -226,6 +288,25 @@ io.on('connection', (socket) => {
     console.log(`[SALA] ${player.name} se unió a la sala ${cleanId}`);
   });
 
+  // Seleccionar modalidad antes de iniciar (solo host)
+  socket.on('select_mode', ({ modeKey }) => {
+    const room = rooms.get(socket.roomId);
+    if (!room || room.hostId !== socket.id) return;
+
+    room.selectedModeKey = modeKey;
+    if (modeKey === 'all') {
+      room.playlist = [0, 1, 2, 3, 4];
+    } else {
+      const parsed = parseInt(modeKey, 10);
+      room.playlist = [parsed];
+    }
+
+    io.to(room.id).emit('mode_selected', {
+      selectedModeKey: room.selectedModeKey,
+      playlist: room.playlist
+    });
+  });
+
   // Iniciar partida (solo Host)
   socket.on('start_game', () => {
     const room = rooms.get(socket.roomId);
@@ -235,16 +316,18 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // Reiniciar puntajes
+    // Reiniciar puntuaciones totales
     for (const player of room.players.values()) {
       player.score = 0;
       player.posterImage = null;
     }
 
-    setupRound(room, 0);
+    room.currentPlaylistIndex = 0;
+    const firstModeIdx = room.playlist[0];
+    setupRoundByModeIndex(room, firstModeIdx);
   });
 
-  // Progreso en tiempo real
+  // Actualización de progreso en tiempo real
   socket.on('update_progress', ({ progress, roundScore }) => {
     const room = rooms.get(socket.roomId);
     if (!room) return;
@@ -257,7 +340,6 @@ io.on('connection', (socket) => {
       player.roundScore = roundScore;
     }
 
-    // Emitir leaderboard actualizado a toda la sala
     io.to(room.id).emit('leaderboard_update', {
       players: Array.from(room.players.values()).map(p => ({
         id: p.id,
@@ -268,10 +350,9 @@ io.on('connection', (socket) => {
       }))
     });
 
-    // Si completó el reto al 100% y no había terminado
+    // Reto completado al 100%
     if (player.progress >= 100 && !player.hasFinished) {
       player.hasFinished = true;
-      // Bonus por velocidad según tiempo restante
       const timeBonus = Math.floor(room.roundTimeRemaining * 15);
       player.roundScore += timeBonus;
 
@@ -282,7 +363,6 @@ io.on('connection', (socket) => {
         timeBonus
       });
 
-      // Verificar si todos los jugadores terminaron
       const allFinished = Array.from(room.players.values()).every(p => p.hasFinished);
       if (allFinished) {
         endCurrentRound(room);
@@ -290,7 +370,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Guardar póster creado en POSTER RUSH
+  // Envío de póster en POSTER RUSH
   socket.on('submit_poster', ({ posterImage, roundScore }) => {
     const room = rooms.get(socket.roomId);
     if (!room) return;
@@ -318,7 +398,9 @@ io.on('connection', (socket) => {
   socket.on('restart_game', () => {
     const room = rooms.get(socket.roomId);
     if (!room || room.hostId !== socket.id) return;
-    setupRound(room, 0);
+    room.currentPlaylistIndex = 0;
+    const firstModeIdx = room.playlist[0];
+    setupRoundByModeIndex(room, firstModeIdx);
   });
 
   // Desconexión
@@ -336,11 +418,10 @@ io.on('connection', (socket) => {
         rooms.delete(room.id);
         console.log(`[SALA] Sala ${room.id} cerrada por quedar vacía`);
       } else {
-        // Si el host salió, ceder host al siguiente jugador
         if (room.hostId === socket.id) {
           const nextHost = room.players.keys().next().value;
           room.hostId = nextHost;
-          console.log(`[SALA] Nuevo host asignado: ${nextHost}`);
+          console.log(`[SALA] Nuevo anfitrión asignado: ${nextHost}`);
         }
         io.to(room.id).emit('player_left', getRoomPublicData(room));
       }
@@ -350,6 +431,6 @@ io.on('connection', (socket) => {
 
 server.listen(PORT, () => {
   console.log(`=======================================================`);
-  console.log(`🎮 TYPE IN MOTION - Servidor Activo en http://localhost:${PORT}`);
+  console.log(`🎮 TYPE IN MOTION (v2.0) - Servidor Activo en http://localhost:${PORT}`);
   console.log(`=======================================================`);
 });

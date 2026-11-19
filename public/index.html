@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TYPE IN MOTION - Juego Tipográfico Multijugador 3D</title>
   
-  <!-- Tipografías editoriales modernas -->
+  <!-- Tipografías editoriales contemporáneas -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
@@ -42,49 +42,79 @@
     </div>
   </header>
 
+  <!-- Modal de Instrucciones Visuales Previas a cada Reto -->
+  <div id="round-intro-modal" class="intro-modal-backdrop">
+    <div class="intro-modal-card">
+      <div id="intro-modal-icon" class="intro-modal-icon">🧩</div>
+      <h2 id="intro-modal-title">01. FIX THE TYPE</h2>
+      <p id="intro-modal-desc">Reorganiza las letras desordenadas para formar la palabra antes de que termine el tiempo.</p>
+      
+      <div class="intro-gesture-container">
+        <span class="intro-gesture-label">GESTO CON TUS MANOS:</span>
+        <div id="intro-modal-gesture" class="intro-gesture-box">
+          🤏 PELLIZCO CON ÍNDICE Y PULGAR: Agarra cada letra y arrástrala a su casilla correspondiente.
+        </div>
+      </div>
+
+      <button id="btn-intro-continue" class="btn-primary btn-large">¡EMPEZAR! (3s)</button>
+    </div>
+  </div>
+
   <!-- Contenedor Principal de Pantallas -->
   <main class="app-container">
 
     <!-- 1. PANTALLA DE INICIO (HOME) -->
     <section id="screen-home" class="screen-view active">
       <div class="home-hero">
+        <div class="hero-tag-pill">JUEGO MULTIJUGADOR 3D • CONTROL POR CÁMARA</div>
         <h1 class="hero-title">TYPE IN MOTION</h1>
-        <p class="hero-subtitle">Juego interactivo y competitivo multijugador de diseño tipográfico y control gestual 3D.</p>
+        <p class="hero-subtitle">Desafíos tipográficos interactivos y competitivos en tiempo real con las manos frente a la cámara.</p>
         
         <div class="home-card">
           <div class="input-group">
-            <label for="input-player-name">TU NOMBRE O APODO</label>
-            <input type="text" id="input-player-name" placeholder="Ej. Alex Designer" maxlength="16" value="Alex Designer" />
+            <label for="input-player-name">TU NOMBRE O APODO DE DISEÑADOR</label>
+            <input type="text" id="input-player-name" placeholder="Ej. Sofia Typo" maxlength="16" value="Sofia Typo" />
           </div>
 
           <div class="action-buttons-row">
             <button id="btn-create-room" class="btn-primary btn-large">CREAR SALA NUEVA</button>
           </div>
 
-          <div class="separator-line"><span>O ÚNETE A UNA SALA</span></div>
+          <div class="separator-line"><span>O ÚNETE A UNA SALA EXISTENTE</span></div>
 
           <div class="join-box-row">
-            <input type="text" id="input-room-code" placeholder="CÓDIGO (EJ. TYP42)" maxlength="6" style="text-transform: uppercase;" />
+            <input type="text" id="input-room-code" placeholder="CÓDIGO (EJ. 9A6AA)" maxlength="6" style="text-transform: uppercase;" />
             <button id="btn-join-room" class="btn-secondary">UNIRSE</button>
           </div>
         </div>
 
-        <!-- Fichas informativas de modalidades -->
+        <!-- Fichas informativas de las 5 modalidades -->
+        <h2 class="section-preview-title">5 RETOS TIPOGRÁFICOS DE HABILIDAD</h2>
         <div class="modes-preview-grid">
           <div class="mode-preview-card">
-            <div class="mode-tag tag-blue">01</div>
+            <div class="mode-tag tag-orange">01 • ORDEN</div>
             <h3>FIX THE TYPE</h3>
-            <p>Agarra y reorganiza letras 3D en el espacio para ordenar la palabra antes de que el reloj marque cero.</p>
+            <p>Reorganiza letras 3D desordenadas en el espacio para ordenar la palabra antes de que el reloj marque cero.</p>
           </div>
           <div class="mode-preview-card">
-            <div class="mode-tag tag-orange">02</div>
+            <div class="mode-tag tag-yellow">02 • ESCALA</div>
             <h3>STRETCH IT</h3>
-            <p>Estira y deforma palabras usando ambas manos para igualar siluetas tipográficas editoriales.</p>
+            <p>Estira y deforma palabras usando ambas manos para igualar siluetas tipográficas de referencia.</p>
           </div>
           <div class="mode-preview-card">
-            <div class="mode-tag tag-lime">03</div>
+            <div class="mode-tag tag-pink">03 • DISEÑO</div>
             <h3>POSTER RUSH</h3>
-            <p>Compón un cartel tipográfico en 3D combinando figuras y letras para ganar puntos de diseño.</p>
+            <p>Compón un cartel tipográfico en 3D combinando figuras y letras para ganar puntos de composición.</p>
+          </div>
+          <div class="mode-preview-card">
+            <div class="mode-tag tag-red">04 • PRECISIÓN</div>
+            <h3>KERNING RACE</h3>
+            <p>Ajusta el espaciado entre letras con tus manos para que la palabra coincida con la referencia perfecta.</p>
+          </div>
+          <div class="mode-preview-card">
+            <div class="mode-tag tag-dark">05 • REFLEJOS</div>
+            <h3>TYPE POP</h3>
+            <p>Letras 3D flotan y rebotan a toda velocidad. ¡Toca y revienta las letras objetivo antes de que escapen!</p>
           </div>
         </div>
       </div>
@@ -94,9 +124,24 @@
     <section id="screen-lobby" class="screen-view">
       <div class="lobby-content">
         <div class="lobby-header-box">
-          <h2>SALA DE ESPERA</h2>
-          <p>Comparte este código con tus amigos para competir en tiempo real:</p>
+          <span class="lobby-tag">SALA PRIVADA MULTIJUGADOR</span>
+          <h2>CÓDIGO DE ACCESO</h2>
+          <p>Comparte este código con tus amigos o rivales para competir simultáneamente:</p>
           <div class="room-code-badge" id="lobby-room-code">------</div>
+        </div>
+
+        <!-- Selector de Modalidad (Host) -->
+        <div class="lobby-mode-selection-card">
+          <label for="lobby-mode-selector">MODALIDAD DE PARTIDA:</label>
+          <select id="lobby-mode-selector" class="select-editorial">
+            <option value="all">🌟 Torneo Completo (Las 5 Rondas Consecutivas)</option>
+            <option value="0">🧩 Reto 1: FIX THE TYPE (Ordenar Letras)</option>
+            <option value="1">↔️ Reto 2: STRETCH IT (Estirar y Deformar)</option>
+            <option value="2">🎨 Reto 3: POSTER RUSH (Composición de Cartel)</option>
+            <option value="3">📐 Reto 4: KERNING RACE (Precisión de Espaciado)</option>
+            <option value="4">💥 Reto 5: TYPE POP (Velocidad y Reflejos)</option>
+          </select>
+          <span class="mode-hint-text">El anfitrión puede elegir un reto individual o el torneo completo.</span>
         </div>
 
         <div class="lobby-players-container">
@@ -135,15 +180,15 @@
 
       <!-- Tira de Leaderboard en Vivo -->
       <div class="live-leaderboard-container">
-        <span class="leaderboard-title">EN VIVO</span>
+        <span class="leaderboard-title">MARCADOR EN VIVO</span>
         <div id="live-leaderboard-strip" class="leaderboard-strip">
           <!-- Jugadores en vivo -->
         </div>
       </div>
 
-      <!-- Medidor de Afinidad para STRETCH IT -->
+      <!-- Medidor de Precisión para STRETCH IT y KERNING RACE -->
       <div id="stretch-accuracy-meter" class="stretch-meter-card" style="display: none;">
-        <div class="stretch-meter-label" id="stretch-accuracy-text">Afinidad Tipográfica: 0%</div>
+        <div class="stretch-meter-label" id="stretch-accuracy-text">Precisión: 0%</div>
         <div class="stretch-meter-bar">
           <div id="stretch-accuracy-fill" class="stretch-meter-fill"></div>
         </div>
@@ -152,12 +197,12 @@
       <!-- Barra de Herramientas para POSTER RUSH -->
       <div id="poster-tools-bar" class="poster-toolbar" style="display: none;">
         <div class="tool-group">
-          <span class="tool-group-label">FIGURAS BLENDER 3D:</span>
-          <button class="btn-spawn-item" data-item="torus_ring">🍩 Toroide</button>
+          <span class="tool-group-label">FIGURAS 3D:</span>
+          <button class="btn-spawn-item" data-item="torus_ring">🍩 Toro</button>
           <button class="btn-spawn-item" data-item="beveled_cube">🎲 Cubo</button>
           <button class="btn-spawn-item" data-item="pill_capsule">💊 Cápsula</button>
           <button class="btn-spawn-item" data-item="graphic_disc">💿 Disco</button>
-          <button class="btn-spawn-item" data-item="abstract_cone">🔺 Cono</button>
+          <button class="btn-spawn-item" data-item="star_element">✳️ Estrella</button>
         </div>
 
         <div class="tool-group">
@@ -165,26 +210,27 @@
           <button class="btn-spawn-item" data-item="letter_T">T</button>
           <button class="btn-spawn-item" data-item="letter_Y">Y</button>
           <button class="btn-spawn-item" data-item="letter_P">P</button>
-          <button class="btn-spawn-item" data-item="letter_E">E</button>
-          <button class="btn-spawn-item" data-item="letter_M">M</button>
           <button class="btn-spawn-item" data-item="letter_O">O</button>
+          <button class="btn-spawn-item" data-item="letter_M">M</button>
+          <button class="btn-spawn-item" data-item="letter_A">A</button>
         </div>
 
         <div class="tool-group">
-          <span class="tool-group-label">COLOR:</span>
+          <span class="tool-group-label">PALETA:</span>
           <div class="swatches-row">
-            <div class="color-swatch swatch-blue active" data-color="0038FF"></div>
-            <div class="color-swatch swatch-orange" data-color="FF5500"></div>
-            <div class="color-swatch swatch-lime" data-color="CCFF00"></div>
-            <div class="color-swatch swatch-black" data-color="111111"></div>
-            <div class="color-swatch swatch-cream" data-color="F5F2EB"></div>
+            <div class="color-swatch swatch-orange active" data-color="FF713B" title="Naranja"></div>
+            <div class="color-swatch swatch-yellow" data-color="FFD65A" title="Amarillo"></div>
+            <div class="color-swatch swatch-pink" data-color="FF91B5" title="Rosado"></div>
+            <div class="color-swatch swatch-red" data-color="E84442" title="Rojo"></div>
+            <div class="color-swatch swatch-cream" data-color="FFF7EB" title="Crema"></div>
+            <div class="color-swatch swatch-dark" data-color="1A1110" title="Carbón"></div>
           </div>
         </div>
 
-        <button id="btn-submit-poster" class="btn-primary">FINALIZAR Y ENVIAR PÓSTER</button>
+        <button id="btn-submit-poster" class="btn-primary">FINALIZAR Y ENVIAR</button>
       </div>
 
-      <!-- Lienzo Three.js 3D -->
+      <!-- Lienzo Three.js 3D con Vista Frontal -->
       <div id="three-container" class="three-viewport"></div>
 
       <!-- Ventana PIP de Hand Tracking (MediaPipe) -->
@@ -198,8 +244,9 @@
     <!-- 4. PANTALLA DE RESULTADOS DE RONDA -->
     <section id="screen-round-results" class="screen-view">
       <div class="results-card">
+        <div class="results-tag">RONDA COMPLETADA</div>
         <h2 id="results-round-title">RESULTADOS DE LA RONDA</h2>
-        <p class="results-subtitle">Puntuaciones acumuladas y clasificación:</p>
+        <p class="results-subtitle">Puntuaciones acumuladas y clasificación general:</p>
         
         <div id="results-leaderboard" class="results-list">
           <!-- Filas de resultados -->
@@ -216,9 +263,9 @@
     <section id="screen-game-over" class="screen-view">
       <div class="game-over-container">
         <div class="game-over-header">
-          <span class="game-over-tag">FIN DE LA COMPETICIÓN</span>
-          <h1 class="winner-title">¡GANADOR!</h1>
-          <div id="podium-winner-name" class="winner-name-highlight">Alex Designer (3200 PTS)</div>
+          <span class="game-over-tag">TORNEO FINALIZADO</span>
+          <h1 class="winner-title">¡CAMPEÓN TIPOGRÁFICO!</h1>
+          <div id="podium-winner-name" class="winner-name-highlight">Sofia Typo (4200 PTS)</div>
         </div>
 
         <!-- Podio 1º, 2º, 3º -->
@@ -229,7 +276,7 @@
         <!-- Exposición de Carteles Creados -->
         <div class="posters-exhibition-section">
           <h2>EXPOSICIÓN DE PÓSTERS TIPOGRÁFICOS 3D</h2>
-          <p>Composiciones creadas por los participantes en la ronda POSTER RUSH:</p>
+          <p>Obras editoriales creadas por los participantes en la ronda POSTER RUSH:</p>
           <div id="posters-gallery-grid" class="gallery-grid">
             <!-- Pósters creados -->
           </div>
