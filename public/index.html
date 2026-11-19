@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TYPE IN MOTION - Juego Tipográfico Multijugador 3D</title>
+  
+  <!-- Tipografías editoriales modernas -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="/css/style.css">
+
+  <!-- Three.js Import Map -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "/node_modules/three/build/three.module.js",
+        "three/addons/": "/node_modules/three/examples/jsm/"
+      }
+    }
+  </script>
+
+  <!-- MediaPipe Hands y Camera Utils desde CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+
+  <!-- Barra Superior / Header Global -->
+  <header class="app-header">
+    <div class="header-logo">
+      <span class="logo-type">TYPE</span>
+      <span class="logo-badge">IN MOTION</span>
+    </div>
+    <div class="header-controls">
+      <span id="tracking-mode-badge" class="status-badge">Cámara: Activa 🖐️</span>
+      <button id="btn-toggle-control" class="btn-secondary" title="Alternar entre cámara y ratón">🖱️ Modo Mouse</button>
+      <button id="btn-toggle-sound" class="btn-icon" title="Silenciar sonido">🔊</button>
+    </div>
+  </header>
+
+  <!-- Contenedor Principal de Pantallas -->
+  <main class="app-container">
+
+    <!-- 1. PANTALLA DE INICIO (HOME) -->
+    <section id="screen-home" class="screen-view active">
+      <div class="home-hero">
+        <h1 class="hero-title">TYPE IN MOTION</h1>
+        <p class="hero-subtitle">Juego interactivo y competitivo multijugador de diseño tipográfico y control gestual 3D.</p>
+        
+        <div class="home-card">
+          <div class="input-group">
+            <label for="input-player-name">TU NOMBRE O APODO</label>
+            <input type="text" id="input-player-name" placeholder="Ej. Alex Designer" maxlength="16" value="Alex Designer" />
+          </div>
+
+          <div class="action-buttons-row">
+            <button id="btn-create-room" class="btn-primary btn-large">CREAR SALA NUEVA</button>
+          </div>
+
+          <div class="separator-line"><span>O ÚNETE A UNA SALA</span></div>
+
+          <div class="join-box-row">
+            <input type="text" id="input-room-code" placeholder="CÓDIGO (EJ. TYP42)" maxlength="6" style="text-transform: uppercase;" />
+            <button id="btn-join-room" class="btn-secondary">UNIRSE</button>
+          </div>
+        </div>
+
+        <!-- Fichas informativas de modalidades -->
+        <div class="modes-preview-grid">
+          <div class="mode-preview-card">
+            <div class="mode-tag tag-blue">01</div>
+            <h3>FIX THE TYPE</h3>
+            <p>Agarra y reorganiza letras 3D en el espacio para ordenar la palabra antes de que el reloj marque cero.</p>
+          </div>
+          <div class="mode-preview-card">
+            <div class="mode-tag tag-orange">02</div>
+            <h3>STRETCH IT</h3>
+            <p>Estira y deforma palabras usando ambas manos para igualar siluetas tipográficas editoriales.</p>
+          </div>
+          <div class="mode-preview-card">
+            <div class="mode-tag tag-lime">03</div>
+            <h3>POSTER RUSH</h3>
+            <p>Compón un cartel tipográfico en 3D combinando figuras y letras para ganar puntos de diseño.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. SALA DE ESPERA (LOBBY) -->
+    <section id="screen-lobby" class="screen-view">
+      <div class="lobby-content">
+        <div class="lobby-header-box">
+          <h2>SALA DE ESPERA</h2>
+          <p>Comparte este código con tus amigos para competir en tiempo real:</p>
+          <div class="room-code-badge" id="lobby-room-code">------</div>
+        </div>
+
+        <div class="lobby-players-container">
+          <h3>JUGADORES CONECTADOS</h3>
+          <div id="lobby-players-list" class="players-grid">
+            <!-- Renderizado dinámico de jugadores -->
+          </div>
+        </div>
+
+        <div class="lobby-actions">
+          <button id="btn-start-game" class="btn-primary btn-large" style="display: none;">¡INICIAR PARTIDA!</button>
+          <div id="lobby-waiting-msg" class="waiting-indicator">Esperando a que el anfitrión inicie la partida...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. PANTALLA DE JUEGO (GAME) -->
+    <section id="screen-game" class="screen-view">
+      <!-- HUD Superior -->
+      <div class="game-hud-top">
+        <div class="hud-mode-info">
+          <h2 id="current-round-title">RONDA: CARGANDO...</h2>
+          <span id="current-round-hint" class="hud-hint">Sigue las instrucciones del reto</span>
+        </div>
+
+        <div class="hud-timer-container">
+          <span class="timer-label">TIEMPO</span>
+          <div id="round-timer" class="timer-clock">45s</div>
+        </div>
+
+        <div class="hud-score-container">
+          <span class="score-label">TU PUNTUACIÓN</span>
+          <div id="my-score-display" class="score-digits">0 PTS</div>
+        </div>
+      </div>
+
+      <!-- Tira de Leaderboard en Vivo -->
+      <div class="live-leaderboard-container">
+        <span class="leaderboard-title">EN VIVO</span>
+        <div id="live-leaderboard-strip" class="leaderboard-strip">
+          <!-- Jugadores en vivo -->
+        </div>
+      </div>
+
+      <!-- Medidor de Afinidad para STRETCH IT -->
+      <div id="stretch-accuracy-meter" class="stretch-meter-card" style="display: none;">
+        <div class="stretch-meter-label" id="stretch-accuracy-text">Afinidad Tipográfica: 0%</div>
+        <div class="stretch-meter-bar">
+          <div id="stretch-accuracy-fill" class="stretch-meter-fill"></div>
+        </div>
+      </div>
+
+      <!-- Barra de Herramientas para POSTER RUSH -->
+      <div id="poster-tools-bar" class="poster-toolbar" style="display: none;">
+        <div class="tool-group">
+          <span class="tool-group-label">FIGURAS BLENDER 3D:</span>
+          <button class="btn-spawn-item" data-item="torus_ring">🍩 Toroide</button>
+          <button class="btn-spawn-item" data-item="beveled_cube">🎲 Cubo</button>
+          <button class="btn-spawn-item" data-item="pill_capsule">💊 Cápsula</button>
+          <button class="btn-spawn-item" data-item="graphic_disc">💿 Disco</button>
+          <button class="btn-spawn-item" data-item="abstract_cone">🔺 Cono</button>
+        </div>
+
+        <div class="tool-group">
+          <span class="tool-group-label">LETRAS 3D:</span>
+          <button class="btn-spawn-item" data-item="letter_T">T</button>
+          <button class="btn-spawn-item" data-item="letter_Y">Y</button>
+          <button class="btn-spawn-item" data-item="letter_P">P</button>
+          <button class="btn-spawn-item" data-item="letter_E">E</button>
+          <button class="btn-spawn-item" data-item="letter_M">M</button>
+          <button class="btn-spawn-item" data-item="letter_O">O</button>
+        </div>
+
+        <div class="tool-group">
+          <span class="tool-group-label">COLOR:</span>
+          <div class="swatches-row">
+            <div class="color-swatch swatch-blue active" data-color="0038FF"></div>
+            <div class="color-swatch swatch-orange" data-color="FF5500"></div>
+            <div class="color-swatch swatch-lime" data-color="CCFF00"></div>
+            <div class="color-swatch swatch-black" data-color="111111"></div>
+            <div class="color-swatch swatch-cream" data-color="F5F2EB"></div>
+          </div>
+        </div>
+
+        <button id="btn-submit-poster" class="btn-primary">FINALIZAR Y ENVIAR PÓSTER</button>
+      </div>
+
+      <!-- Lienzo Three.js 3D -->
+      <div id="three-container" class="three-viewport"></div>
+
+      <!-- Ventana PIP de Hand Tracking (MediaPipe) -->
+      <div class="webcam-pip-container">
+        <video id="webcam-video" playsinline muted autoplay style="display: none;"></video>
+        <canvas id="webcam-canvas" width="220" height="160"></canvas>
+        <div class="pip-label">SEGUIMIENTO DE MANOS</div>
+      </div>
+    </section>
+
+    <!-- 4. PANTALLA DE RESULTADOS DE RONDA -->
+    <section id="screen-round-results" class="screen-view">
+      <div class="results-card">
+        <h2 id="results-round-title">RESULTADOS DE LA RONDA</h2>
+        <p class="results-subtitle">Puntuaciones acumuladas y clasificación:</p>
+        
+        <div id="results-leaderboard" class="results-list">
+          <!-- Filas de resultados -->
+        </div>
+
+        <div class="results-footer-msg">
+          <div class="spinner-small"></div>
+          <span>Siguiente desafío comenzando en breve...</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. PANTALLA FINAL / PODIO Y EXPOSICIÓN -->
+    <section id="screen-game-over" class="screen-view">
+      <div class="game-over-container">
+        <div class="game-over-header">
+          <span class="game-over-tag">FIN DE LA COMPETICIÓN</span>
+          <h1 class="winner-title">¡GANADOR!</h1>
+          <div id="podium-winner-name" class="winner-name-highlight">Alex Designer (3200 PTS)</div>
+        </div>
+
+        <!-- Podio 1º, 2º, 3º -->
+        <div id="podium-steps" class="podium-row">
+          <!-- Columnas del podio -->
+        </div>
+
+        <!-- Exposición de Carteles Creados -->
+        <div class="posters-exhibition-section">
+          <h2>EXPOSICIÓN DE PÓSTERS TIPOGRÁFICOS 3D</h2>
+          <p>Composiciones creadas por los participantes en la ronda POSTER RUSH:</p>
+          <div id="posters-gallery-grid" class="gallery-grid">
+            <!-- Pósters creados -->
+          </div>
+        </div>
+
+        <div class="game-over-actions">
+          <button id="btn-restart-game" class="btn-primary btn-large">JUGAR OTRA PARTIDA</button>
+          <button onclick="location.reload()" class="btn-secondary btn-large">VOLVER AL INICIO</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="/js/sound_engine.js"></script>
+  <script src="/js/hand_tracker.js"></script>
+  <script type="module" src="/js/main.js"></script>
+</body>
+</html>
